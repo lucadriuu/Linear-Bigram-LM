@@ -2,7 +2,7 @@ import numpy as np
 import scipy 
 from scipy.special import gamma, zeta, expn
 
-#prova git prova git
+#prova git prova git 
 
 def token_freq(d,alpha):
         i = np.arange(1,d + 1)
