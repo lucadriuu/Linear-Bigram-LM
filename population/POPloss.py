@@ -134,11 +134,6 @@ def evo_loss_multi(d, alpha, pi, betas, eta, t_start, t_stop, n_runs, n_passes):
 
     u_realizations = [u_j_flip_mp(d, pi, n_passes) for _ in range(n_runs)]   # sampled once, reused for every beta
     
-    #u_real_plus = []
-    #for u in u_realizations:
-    #     if u @ pi > 0 and u[0] == 1:
-    #          u_real_plus.append(u)
-
     mean_dyn = []
     std_dyn = []
     mean_dyn_q = []
