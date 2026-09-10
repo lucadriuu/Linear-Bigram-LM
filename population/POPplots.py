@@ -70,7 +70,7 @@ def plot_beta_fixed(filename):
         ax_L.set_xlabel(r'Step ($t$)', fontsize=12)
         ax_L.set_ylabel(r'$r_d(t)$', fontsize=12)
         ax_L.set_xscale('log')
-        ax_L.set_yscale('log')
+        #ax_L.set_yscale('log')
         ax_L.grid(False)
         ax_L.legend(fontsize=11)
 
