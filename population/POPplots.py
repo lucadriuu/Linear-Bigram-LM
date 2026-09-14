@@ -2,6 +2,7 @@ import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
+from POPloss import token_freq
 
 def plot_beta_fixed(filename):
     with open(filename, 'rb') as f:
@@ -29,20 +30,10 @@ def plot_beta_fixed(filename):
             power_label = f"10^{{{int(np.log10(d))}}}" if d >= 10 else f"{d}"
             
             # Left panel: r_d(t) relative loss dynamics
-            ax_L.plot(
-                t_steps, dynamics,
-                color=colors[i],
-                linewidth=2.0,
-                label=rf'$d = {power_label}$'
-            )
+            ax_L.plot( t_steps, dynamics,color=colors[i],linewidth=2.0,label=rf'$d = {power_label}$')
 
             # Right panel: q_d(t) interaction dynamics
-            ax_q.plot(
-                t_steps, dynamics_q,
-                color=colors[i],
-                linewidth=2.0,
-                label=rf'$d = {power_label}$'
-            )
+            ax_q.plot(t_steps, dynamics_q,color=colors[i],linewidth=2.0,label=rf'$d = {power_label}$')
 
         # Plot theoretical scaling law reference line from the largest d run
         largest_d = ds[-1]
@@ -56,14 +47,7 @@ def plot_beta_fixed(filename):
         else:
             ref_label = r'$\frac{C}{\tau^{1-\frac{1}{\alpha}}}$'
 
-        ax_L.plot(
-            t_ref, refline,
-            linestyle='--',
-            color='black',
-            alpha=0.75,
-            linewidth=2.0,
-            label=f'{ref_label}'
-        )
+        ax_L.plot(t_ref, refline,linestyle='--',color='black',alpha=0.75,linewidth=2.0,label=f'{ref_label}')
 
         # Left panel formatting
         ax_L.set_title(r'$r_d(t)$ dynamics', fontsize=13)
@@ -85,6 +69,106 @@ def plot_beta_fixed(filename):
         fig.suptitle(fr'Population Loss dynamics varying $d$ ($\alpha={alpha}$, $\beta={beta}$, $\eta = 1/\pi_1$) ', fontsize=14)
         plt.tight_layout()
         plt.show()
+
+
+
+
+def plot_perturb_evo(filename):
+   
+    with open(filename, 'rb') as f:
+        data = pickle.load(f)
+
+    alphas = data['alphas']
+    ds = data['ds']
+    beta = data.get('beta', None)
+    method = data.get('method', '')
+    sims = data['simulations']
+
+    num_ds = len(ds)
+    cmap = plt.colormaps['Oranges'] if hasattr(plt, 'colormaps') else cm.get_cmap('Oranges')
+    colors = cmap(np.linspace(0.25, 0.95, num_ds))
+
+    fig1, axes1 = plt.subplots(1, len(alphas), figsize=(18, 5.5))
+    if len(alphas) == 1:
+        axes1 = [axes1]
+
+    for j, alpha in enumerate(alphas):
+        ax = axes1[j]
+
+        for i, d in enumerate(ds):
+            run = sims[alpha].get(d, sims[alpha].get(beta, {}))
+            t_steps = run['t_steps']
+            dynamics_A = run.get('dynamics_A', run.get('dynamcs_A'))
+
+            power_label = f"10^{{{int(np.log10(d))}}}" if d >= 10 else f"{d}"
+
+            ax.plot(
+                t_steps,
+                dynamics_A,
+                color=colors[i],
+                linewidth=2.0,
+                label=rf'$d = {power_label}$'
+            )
+
+        ax.set_title(rf'$\alpha = {alpha}$', fontsize=13)
+        ax.set_xlabel(r'Step ($t$)', fontsize=12)
+        ax.set_ylabel(r'$A(t)$', fontsize=12)
+        ax.set_xscale('log')
+        ax.grid(False)
+
+        if j == 0:
+            ax.legend(fontsize=11, loc='lower right')
+
+    fig1.suptitle(r'$A(t)$ dynamics across vocabulary sizes ($\eta = 1/\pi_1$)', fontsize=14)
+    fig1.tight_layout()
+    plt.show()
+
+
+    fig2, axes2 = plt.subplots(1, len(alphas), figsize=(18, 5.5))
+    if len(alphas) == 1:
+        axes2 = [axes2]
+
+    for j, alpha in enumerate(alphas):
+        ax = axes2[j]
+
+        # Theoretical transition point: tau = [-2 log(1 - 2^(-alpha))]^(-1)
+        t_star = 1.0 / (-2.0 * np.log(1.0 - 2.0 ** (-alpha)))
+        ax.axvline(
+            x=t_star,
+            color='black',
+            linestyle=':',
+            linewidth=1.8,
+            label=r'$\tau = [-2log(1 - 2^{-\alpha})]^{-1}$'
+        )
+
+        for i, d in enumerate(ds):
+            run = sims[alpha].get(d, sims[alpha].get(beta, {}))
+            t_steps = run['t_steps']
+            dynamics_A = run.get('dynamics_A', run.get('dynamcs_A'))
+            pi_1 = token_freq(d, alpha)[0]
+
+            power_label = f"10^{{{int(np.log10(d))}}}" if d >= 10 else f"{d}"
+
+            ax.plot(
+                t_steps,
+                dynamics_A / pi_1,
+                color=colors[i],
+                linewidth=2.0,
+                label=rf'$d = {power_label}$'
+            )
+
+        ax.set_title(rf'$\alpha = {alpha}$', fontsize=13)
+        ax.set_xlabel(r'Step ($t$)', fontsize=12)
+        ax.set_ylabel(r'$A(t)/\pi_1$', fontsize=12)
+        ax.set_xscale('log')
+        ax.grid(False)
+
+        if j == 0:
+            ax.legend(fontsize=11, loc='lower right')
+
+    fig2.suptitle(r'$q(t)/q(0) = A(t)/\pi_1$ dynamics across vocabulary sizes ($\eta = 1/\pi_1$)', fontsize=14)
+    fig2.tight_layout()
+    plt.show()
 
 
 

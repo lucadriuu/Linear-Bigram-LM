@@ -1,6 +1,7 @@
 import numpy as np
 import pickle 
-from MCsampling import token_freq, u_j_greedy, sequence, emp_matrix, evo
+from MCsampling import token_freq, u_j_greedy, sequence, emp_matrix
+from EMPloss import evo
 
 
 
@@ -21,7 +22,7 @@ def EMPsingle(d, alpha, betas, eta, seq_len, t_min, t_max):
         if "t_steps" not in data:
             data["t_steps"] = t_steps
 
-    filepath = fr"/home/lucadriu/Desktop/uni/Tesi/Final/experiments/empirical/data/single/sim{alpha}_{d}_{seq_len}.pkl"
+    filepath = fr"/home/lucadriu/Desktop/uni/Tesi/Final/experiments/all/empirical/data/single/sim{alpha}_{d}_{seq_len}.pkl"
     # Open and write directly to the specified filepath
     with open(filepath, "wb") as f:
         pickle.dump(data, f)
@@ -59,7 +60,7 @@ def EMPmulti(d, alpha, betas, eta, seq_len, t_min, t_max, n_runs):
         if "t_steps" not in data:
             data["t_steps"] = t_steps
 
-    filepath = fr"/home/lucadriu/Desktop/uni/Tesi/Final/experiments/empirical/data/multi/sim{alpha}_{d}_{seq_len}_{n_runs}.pkl"
+    filepath = fr"/home/lucadriu/Desktop/uni/Tesi/Final/experiments/all/empirical/data/single/multi/sim{alpha}_{d}_{seq_len}_{n_runs}.pkl"
 
     with open(filepath, "wb") as f:
         pickle.dump(data, f)
