@@ -1,6 +1,8 @@
 import numpy as np
 import scipy 
 from scipy.special import gamma, zeta, expn
+from scipy.special import beta as beta_fn      #  beta_fn = beta function
+import mpmath
 
 #prova git prova git 
 
@@ -111,8 +113,8 @@ def evo_loss(d, alpha, pi, u_j, beta, eta, t_start, t_stop):
         dynamics_num2_sum1.append(num2_sum1)
 
         if alpha < 1.0:
-            #ref = ((1-alpha)/alpha) * expn(1/alpha, tv)
-            ref = ((1 - alpha) / alpha) * (np.exp(-tv) / (tv + 1))
+            # exact E_{1/alpha}(tau) (Thm 3.1); e^{-tau}/(tau+1) is only its large-tau equivalent
+            ref = ((1 - alpha) / alpha) * float(mpmath.expint(1/alpha, tv))
             refline.append(ref)
 
         if alpha == 1.0:
@@ -121,7 +123,8 @@ def evo_loss(d, alpha, pi, u_j, beta, eta, t_start, t_stop):
             refline.append(ref)
 
         if alpha > 1.0:
-            ref = (gamma(1-(1/alpha))/(alpha*zeta(alpha)))/(tv**(1-(1/alpha)))      
+            # Beta form of Thm 3.1; its large-t limit is C/(2t)^{1-1/alpha}, not C/t^{1-1/alpha}
+            ref = beta_fn(1 - 1/alpha, 1 + 2*tv) / (alpha * zeta(alpha))
             refline.append(ref)
 
     return t_steps, dynamics, dynamics_b, dynamics_q, dynamics_num2_sum1, refline

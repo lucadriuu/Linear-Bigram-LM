@@ -41,11 +41,11 @@ def plot_beta_fixed(filename):
         refline = sims[alpha][largest_d]['refline']
 
         if alpha < 1.0:
-            ref_label = r'$\frac{1-\alpha}{\alpha} \frac{e^{-\tau}}{1+\tau}$'
+            ref_label = r'$\frac{1-\alpha}{\alpha} E_{1/\alpha}(\tau)$'
         elif alpha == 1.0:
             ref_label = r'$1 - \tau$'
         else:
-            ref_label = r'$\frac{C}{\tau^{1-\frac{1}{\alpha}}}$'
+            ref_label = r'$\mathrm{B}(1-1/\alpha,\, 1+2t)\,/\,\alpha\zeta(\alpha)$'
 
         ax_L.plot(t_ref, refline,linestyle='--',color='black',alpha=0.75,linewidth=2.0,label=f'{ref_label}')
 
@@ -220,11 +220,11 @@ def plot_d_fixed(filename):
         refline = sims[alpha][any_beta]['refline']
 
         if alpha < 1.0:
-            ref_label = r'$\frac{1-\alpha}{\alpha} \frac{e^{-\tau}}{1+\tau}$'
+            ref_label = r'$\frac{1-\alpha}{\alpha} E_{1/\alpha}(\tau)$'
         elif alpha == 1.0:
             ref_label = r'$1 - \tau$'
         else:
-            ref_label = r'$\frac{C}{\tau^{1-\frac{1}{\alpha}}}$'
+            ref_label = r'$\mathrm{B}(1-1/\alpha,\, 1+2t)\,/\,\alpha\zeta(\alpha)$'
 
         ax_L.plot(
             t_ref, refline,
