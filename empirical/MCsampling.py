@@ -1,7 +1,7 @@
 import numpy as np
 
 def token_freq(d,alpha):
-        i = np.arange(1,d + 1)
+        i = np.arange(1,d + 1, dtype=float)     #float: integer ** negative integer alpha raises in numpy
         pi = i**(-alpha) / np.sum(i**(- alpha))
         return pi
 
@@ -26,37 +26,34 @@ def u_j_greedy(d, pi, beta):
         return u_jg, p_plus, p_min
     
 
-def sequence(seq_len, d, pi, u, p_min, p_plus):
-    seq = []
-    vocab_indices = np.arange(d)
-    current_token = np.random.choice(vocab_indices, p=pi)
-    seq.append(current_token)
-    
+def sequence(seq_len, d, pi, u, p_min, p_plus, rng):
+    a = rng.choice(d, size=seq_len, p=p_plus).tolist()   # candidates if current u = +1
+    b = rng.choice(d, size=seq_len, p=p_min).tolist()    # candidates if current u = -1
+    up = (u > 0).tolist()                                 # group lookup table
+
+    x = [0] * seq_len
+    cur = int(rng.choice(d, p=pi))                        # stationary start
+    x[0] = cur
     for t in range(1, seq_len):
-        if u[current_token] == 1:
-            current_token = np.random.choice(vocab_indices, p=p_plus)
-        else:
-            current_token = np.random.choice(vocab_indices, p=p_min)
-            
-        seq.append(current_token)
-    
-    return seq
+        cur = a[t] if up[cur] else b[t]
+        x[t] = cur
+
+    return np.array(x, dtype=np.int32)
 
 
-def emp_matrix(seq, d):
-    counts = np.zeros((d, d), dtype=float)
-    for t in range(len(seq)-1):
-        j = seq[t]                      #current token
-        i = seq[t + 1]                  #next token
-        counts[j,i] += + 1.0
 
-    row_sums = counts.sum(axis=1, keepdims=True)
-    jump_probs = np.where(row_sums > 0, counts / row_sums, 0.0)
+def bigram_stats(seq, d):
+    cur = np.asarray(seq[:-1], dtype=np.int64)                 #input tokens (seq_len - 1 pairs)
+    nxt = np.asarray(seq[1:], dtype=np.int64)                  #target tokens; int64 so cur*d + nxt does not overflow
 
-    #check = jump_probs @ pi
+    counts = np.bincount(cur, minlength=d)                                 #c_i
+    keys, pair_counts = np.unique(cur * d + nxt, return_counts=True)       #c_ij for the observed pairs only
+    sq_counts = np.bincount(keys // d, weights=pair_counts.astype(float)**2, minlength=d)     #sum_j c_ij^2
 
+    marg = counts / len(cur)                                   #\pi^_i
+    row_sq_sum = np.where(counts > 0, sq_counts / np.maximum(counts, 1)**2, 0.0)          #sum_j \pi^_{j|i}^2
 
-    return jump_probs
+    return marg, row_sq_sum
 
 
 

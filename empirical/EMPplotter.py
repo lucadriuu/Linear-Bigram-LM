@@ -39,7 +39,9 @@ def plot_single(filename):
     beta_keys = [k for k in data.keys() if k.startswith('beta_')]
     num_betas = len(beta_keys)
 
-    cmap = plt.colormaps['Greens'] if hasattr(plt, 'colormaps') else cm.get_cmap('Greens')
+    emp_cmap = plt.colormaps['Greens'] if hasattr(plt, 'colormaps') else cm.get_cmap('Greens')
+    pop_cmap = plt.colormaps['Oranges'] if hasattr(plt, 'colormaps') else cm.get_cmap('Greens')
+
     color_intensities = np.linspace(0.4, 0.95, num_betas)
     trasp = np.linspace(0.50, 1.0, num_betas)
 
@@ -49,29 +51,26 @@ def plot_single(filename):
         dynamics = data[key]                                      #mean over seeds (single run if n_seeds = 1)
         beta_val = key.replace('beta_', '')
         std = data.get(f'std_{beta_val}')
-        color = cmap(color_intensities[i])
+        emp_color = emp_cmap(color_intensities[i])
+        pop_color = pop_cmap(color_intensities[i])
 
-        plt.plot(t_steps, dynamics, linestyle='-', color=color,
+        plt.plot(t_steps, dynamics, linestyle='-', color=emp_color,
                  alpha=trasp[i], linewidth=2.0, label=f'$\\beta = {beta_val}$')
 
         if std is not None and n_seeds > 1:
             plt.fill_between(t_steps, np.maximum(dynamics - std, 1e-16), dynamics + std,
-                             color=color, alpha=trasp[i] * 0.25)
+                             color=emp_color, alpha=trasp[i] * 0.25)
 
-    if alpha < 1.0:
-        ref_label = r'$\frac{1-\alpha}{\alpha} E_{1/\alpha}(\tau)$'
-    elif alpha == 1.0:
-        ref_label = r'$1 - \tau$'
-    else:
-        ref_label = r'$\mathrm{B}(1-1/\alpha,\, 1+2t)\,/\,\alpha\zeta(\alpha)$'
-
-    plt.plot(t_steps, refline(t_steps, d, alpha), linestyle='--', color='black',
-             alpha=0.75, linewidth=2.0, label=ref_label)
+        # population reference at this d and beta (dashed, same color as its empirical curve)
+        pop_dynamics = data.get(f'pop_{beta_val}')
+        if pop_dynamics is not None:
+            plt.plot(t_steps, pop_dynamics, linestyle='--', color=pop_color,
+                     alpha=trasp[i], linewidth=2.0, label=rf'$r(t)$, $\beta = {beta_val}$')
 
     plt.xscale('log')
-    plt.yscale('log')
+    #plt.yscale('log')
     plt.xlabel('Step ($t$)', fontsize=12)
-    plt.ylabel(r'$\mathcal{L}(t) / \mathcal{L}(0)$', fontsize=12)
+    plt.ylabel(r'$\hat{\mathcal{L}}(t) / \hat{\mathcal{L}}(0)$', fontsize=12)
     plt.title(rf'Empirical Loss Dynamics over varying $\beta$ ($\alpha={alpha}$, $d={d}$, text len={seq_len}, {n_seeds} seeds)', fontsize=14)
     plt.legend(fontsize=12)
     plt.tight_layout()
@@ -109,7 +108,7 @@ def plot_distance(filename):
     plt.xscale('log')
     #plt.yscale('log')
     plt.xlabel('Step ($t$)', fontsize=12)
-    plt.ylabel(r'$|r(t) - \hat{r}(t)|$', fontsize=12)
+    plt.ylabel(r'$|\hat{r}(t) - r(t)|$', fontsize=12)
     plt.title(rf'Population vs empirical distance over varying $T/d$ ($\alpha={alpha}$, $d={d}$, $\beta={beta}$, {n_seeds} seeds)', fontsize=14)
     plt.legend(fontsize=12)
     plt.tight_layout()
