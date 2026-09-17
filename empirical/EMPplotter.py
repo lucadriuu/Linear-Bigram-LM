@@ -94,22 +94,28 @@ def plot_distance(filename):
     plt.figure(figsize=(10, 6))
 
     for i, ratio in enumerate(ratios):
-        distance = data[f'ratio_{ratio}']
+        dynamics = data[f'ratio_{ratio}']                         #mean over seeds
         std = data.get(f'std_{ratio}')
         color = cmap(color_intensities[i])
 
-        plt.plot(t_steps, distance, linestyle='-', color=color,
-                 alpha=trasp[i], linewidth=2.0, label=f'$T/d = {ratio}$')
+        plt.plot(t_steps, dynamics, linestyle='-', color=color,
+                 alpha=trasp[i], linewidth=2.0, label=f'$T/d = {ratio:g}$')
 
         if std is not None and n_seeds > 1:
-            plt.fill_between(t_steps, np.maximum(distance - std, 1e-16), distance + std,
+            plt.fill_between(t_steps, np.maximum(dynamics - std, 1e-16), dynamics + std,
                              color=color, alpha=trasp[i] * 0.2)
+
+    # population reference at this d and beta (sequence independent, one curve)
+    pop_dynamics = data.get('pop')
+    if pop_dynamics is not None:
+        plt.plot(t_steps, pop_dynamics, linestyle='--', color='tab:orange',
+                 linewidth=2.0, label=rf'$r(t)$ (population)')
 
     plt.xscale('log')
     #plt.yscale('log')
     plt.xlabel('Step ($t$)', fontsize=12)
-    plt.ylabel(r'$|\hat{r}(t) - r(t)|$', fontsize=12)
-    plt.title(rf'Population vs empirical distance over varying $T/d$ ($\alpha={alpha}$, $d={d}$, $\beta={beta}$, {n_seeds} seeds)', fontsize=14)
+    plt.ylabel(r'$\hat{r}(t) = \hat{\mathcal{L}}(t) / \hat{\mathcal{L}}(0)$', fontsize=12)
+    plt.title(rf'Empirical loss dynamics over varying $T/d$ ($\alpha={alpha}$, $d={d}$, $\beta={beta}$, {n_seeds} seeds)', fontsize=14)
     plt.legend(fontsize=12)
     plt.tight_layout()
     plt.show()

@@ -26,7 +26,7 @@ def EMPsingle(d, alpha, betas, eta, seq_len, t_min, t_max, n_seeds = 1, seed = N
         runs = np.array(runs)
         data[f"beta_{beta}"] = runs.mean(axis=0)
         data[f"std_{beta}"] = runs.std(axis=0)
-        data[f"pop_{beta}"] = pop_evo(t_steps, eta, pi, u_jg, beta)              #population reference at this d, eta = 1/pi_1
+        data[f"pop_{beta}"] = pop_evo(t_steps, eta, pi, u_jg, beta)              #population reference at this d
 
     filepath = fr"/home/lucadriu/Desktop/uni/Tesi/Final/experiments/all/empirical/data/single/sim{alpha}_{d}_{seq_len}.pkl"
     with open(filepath, "wb") as f:
@@ -45,7 +45,7 @@ def EMPdistance(d, alpha, beta, eta, ratios, t_min, t_max, n_seeds=1, seed=None)
     pop_dyn = pop_evo(t_steps, eta, pi, u_jg, beta)          #sequence independent: computed once
 
     data = {"alpha": alpha, "d": d, "beta": beta, "ratios": ratios, "n_seeds": n_seeds,
-            "eta": eta, "t_steps": t_steps, "pop_dynamics": pop_dyn}
+            "eta": eta, "t_steps": t_steps, "pop": pop_dyn}
 
     for ratio in ratios:
         seq_len = int(ratio * d)
@@ -54,8 +54,8 @@ def EMPdistance(d, alpha, beta, eta, ratios, t_min, t_max, n_seeds=1, seed=None)
         for _ in range(n_seeds):
             seq = sequence(seq_len, d, pi, u_jg, p_min=p_min, p_plus=p_plus, rng=rng)
             marg, row_sq_sum = bigram_stats(seq, d)
-            emp_dyn = emp_evo(t_steps, eta, marg, row_sq_sum)
-            runs.append(np.abs(emp_dyn - pop_dyn))
+            runs.append(emp_evo(t_steps, eta, marg, row_sq_sum))
+
 
         runs = np.array(runs)
         data[f"ratio_{ratio}"] = runs.mean(axis=0)
