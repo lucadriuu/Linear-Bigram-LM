@@ -98,6 +98,45 @@ def plot_perturb_evo(filename):
         for i, d in enumerate(ds):
             run = sims[alpha].get(d, sims[alpha].get(beta, {}))
             t_steps = run['t_steps']
+            dynamics_q = run.get('dynamics_q', run.get('dynamcs_A'))
+
+            power_label = f"10^{{{int(np.log10(d))}}}" if d >= 10 else f"{d}"
+
+            ax.plot(
+                t_steps,
+                dynamics_q,
+                color=colors[i],
+                linewidth=2.0,
+                label=rf'$d = {power_label}$'
+            )
+
+        ax.set_title(rf'$\alpha = {alpha}$', fontsize=13)
+        ax.set_xlabel(r'Step ($t$)', fontsize=12)
+        ax.set_ylabel(r'$q_d(t)$', fontsize=12)
+        ax.set_xscale('log')
+        #ax.set_yscale('log')
+        ax.grid(False)
+
+        if j == 0:
+            ax.legend(fontsize=11, loc='lower right')
+
+    fig1.suptitle(r'$q(t)$ dynamics across vocabulary sizes ($\eta = 1/\pi_1$)', fontsize=14)
+    fig1.tight_layout()
+    plt.savefig(f"/home/lucadriu/Desktop/uni/Tesi/Final/experiments/all/population/plots/perturbation/greedy_perturb_evo_q.png")
+    plt.show()
+
+
+
+    fig2, axes1 = plt.subplots(1, len(alphas), figsize=(18, 5.5))
+    if len(alphas) == 1:
+        axes1 = [axes1]
+
+    for j, alpha in enumerate(alphas):
+        ax = axes1[j]
+
+        for i, d in enumerate(ds):
+            run = sims[alpha].get(d, sims[alpha].get(beta, {}))
+            t_steps = run['t_steps']
             dynamics_A = run.get('dynamics_A', run.get('dynamcs_A'))
 
             power_label = f"10^{{{int(np.log10(d))}}}" if d >= 10 else f"{d}"
@@ -112,19 +151,21 @@ def plot_perturb_evo(filename):
 
         ax.set_title(rf'$\alpha = {alpha}$', fontsize=13)
         ax.set_xlabel(r'Step ($t$)', fontsize=12)
-        ax.set_ylabel(r'$A(t)$', fontsize=12)
+        ax.set_ylabel(r'$A_d(t)$', fontsize=12)
         ax.set_xscale('log')
+        #ax.set_yscale('log')
         ax.grid(False)
 
         if j == 0:
             ax.legend(fontsize=11, loc='lower right')
 
-    fig1.suptitle(r'$A(t)$ dynamics across vocabulary sizes ($\eta = 1/\pi_1$)', fontsize=14)
-    fig1.tight_layout()
+    fig2.suptitle(r'$A(t)$ dynamics across vocabulary sizes ($\eta = 1/\pi_1$)', fontsize=14)
+    fig2.tight_layout()
+    plt.savefig(f"/home/lucadriu/Desktop/uni/Tesi/Final/experiments/all/population/plots/perturbation/greedy_perturb_evo_A.png")
     plt.show()
 
 
-    fig2, axes2 = plt.subplots(1, len(alphas), figsize=(18, 5.5))
+    fig3, axes2 = plt.subplots(1, len(alphas), figsize=(18, 5.5))
     if len(alphas) == 1:
         axes2 = [axes2]
 
@@ -159,21 +200,23 @@ def plot_perturb_evo(filename):
 
         ax.set_title(rf'$\alpha = {alpha}$', fontsize=13)
         ax.set_xlabel(r'Step ($t$)', fontsize=12)
-        ax.set_ylabel(r'$A(t)/\pi_1$', fontsize=12)
+        ax.set_ylabel(r'$A_d(t)/\pi_1$', fontsize=12)
         ax.set_xscale('log')
+        #ax.set_yscale('log')
         ax.grid(False)
 
         if j == 0:
             ax.legend(fontsize=11, loc='lower right')
 
-    fig2.suptitle(r'$q(t)/q(0) = A(t)/\pi_1$ dynamics across vocabulary sizes ($\eta = 1/\pi_1$)', fontsize=14)
-    fig2.tight_layout()
+    fig3.suptitle(r'$q(t)/q(0) = A(t)/\pi_1$ dynamics across vocabulary sizes ($\eta = 1/\pi_1$)', fontsize=14)
+    fig3.tight_layout()
+    plt.savefig(f"/home/lucadriu/Desktop/uni/Tesi/Final/experiments/all/population/plots/perturbation/greedy_perturb_evo_Anorm.png")
     plt.show()
 
 
 
 
-def plot_d_fixed(filename):
+def plot_d_fixed(filename, eta):
     with open(filename, 'rb') as f:
         data = pickle.load(f)
 
@@ -189,26 +232,18 @@ def plot_d_fixed(filename):
 
     power_d = f"10^{{{int(np.log10(d))}}}" if d >= 10 else f"{d}"
 
-    for alpha in alphas:
-        fig, (ax_L, ax_q) = plt.subplots(1, 2, figsize=(14, 6))
+    # One panel per alpha regime, each holding the whole beta sweep
+    fig, axes = plt.subplots(1, len(alphas), figsize=(6.0 * len(alphas), 5.5))
+    axes = np.atleast_1d(axes)
 
+    for ax, alpha in zip(axes, alphas):
         for i, beta in enumerate(betas):
             run = sims[alpha][beta]
             t_steps = run['t_steps']
             dynamics = run['dynamics']
-            dynamics_q = run['dynamics_q']
 
-            # Left panel: r_d(t) for varying beta
-            ax_L.plot(
+            ax.plot(
                 t_steps, dynamics,
-                color=colors[i],
-                linewidth=2.0,
-                label=rf'$\beta = {beta}$'
-            )
-
-            # Right panel: q_d(t) for varying beta
-            ax_q.plot(
-                t_steps, dynamics_q,
                 color=colors[i],
                 linewidth=2.0,
                 label=rf'$\beta = {beta}$'
@@ -226,7 +261,7 @@ def plot_d_fixed(filename):
         else:
             ref_label = r'$\mathrm{B}(1-1/\alpha,\, 1+2t)\,/\,\alpha\zeta(\alpha)$'
 
-        ax_L.plot(
+        ax.plot(
             t_ref, refline,
             linestyle='--',
             color='black',
@@ -235,29 +270,21 @@ def plot_d_fixed(filename):
             label=f'{ref_label}'
         )
 
-        # Left panel formatting
-        ax_L.set_title(r'$r_d(t)$ dynamics', fontsize=13)
-        ax_L.set_xlabel(r'Step ($t$)', fontsize=12)
-        ax_L.set_ylabel(r'$r_d(t)$', fontsize=12)
-        ax_L.set_xscale('log')
-        ax_L.set_yscale('log')
-        ax_L.grid(False)
-        ax_L.legend(fontsize=11)
-
-        # Right panel formatting
-        ax_q.set_title(r'$q_d(t)$ dynamics', fontsize=13)
-        ax_q.set_xlabel(r'Step ($t$)', fontsize=12)
-        ax_q.set_ylabel(r'$q_d(t)$', fontsize=12)
-        ax_q.set_xscale('log')
-        ax_q.grid(False)
-        #ax_q.legend(fontsize=11)
-
-        fig.suptitle(
-            rf'Population Loss dynamics varying $\beta$ ($\alpha={alpha}$, $d={power_d}$, {method} $u$, $\eta = 1/\pi_1$)',
-            fontsize=14
-        )
-        plt.tight_layout()
-        plt.show()
+        # Panel formatting
+        ax.set_title(rf'$\alpha = {alpha}$', fontsize=13)
+        ax.set_xlabel(r'Step ($t$)', fontsize=12)
+        ax.set_ylabel(r'$r_d(t)$', fontsize=12)
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+        ax.grid(False)
+        ax.legend(fontsize=11)
+    
+    fig.suptitle(
+        rf'Population Loss dynamics varying $\beta$ ($d={power_d}$, {method} $u$, $\eta = 1/\pi_1$)',
+        fontsize=14)
+    plt.tight_layout()
+    plt.savefig(f"/home/lucadriu/Desktop/uni/Tesi/Final/experiments/all/population/plots/loss_vs_beta/{method}_{eta}_loss_all_alphas_1e{power_d}.png")
+    plt.show()
 
 
 

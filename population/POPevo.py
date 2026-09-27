@@ -89,6 +89,7 @@ def evoloss_d_fixed(alphas, d, betas, n_passes, method):
             t_steps, dynamics, dynamics_b, dynamics_q, _, refline = evo_loss(d, alpha, pi, u_j, beta, eta, t_start, t_stop)
 
             results['simulations'][alpha][beta] = {
+                'eta': eta,
                 't_steps': np.array(t_steps),
                 'dynamics': np.array(dynamics),
                 'dynamics_b': np.array(dynamics_b),
@@ -96,12 +97,11 @@ def evoloss_d_fixed(alphas, d, betas, n_passes, method):
                 'refline': np.array(refline)
             }
 
-    filename = fr'evo_variable_beta_{method}.pkl'
-    filepath = fr'/home/lucadriu/Desktop/uni/Tesi/Final/experiments/all/population/data/evo_variable_beta_{method}.pkl'
+    filepath = fr'/home/lucadriu/Desktop/uni/Tesi/Final/experiments/all/population/data/loss_{d}_{method}.pkl'
     with open(filepath, 'wb') as f:
         pickle.dump(results, f)
 
-    return filepath
+    return filepath, eta
 
 
 
