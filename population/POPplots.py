@@ -1,292 +1,171 @@
 import pickle
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-from POPloss import token_freq
+from POPtheory import refline, refline_t_grid, refline_label, t_star
 
-def plot_beta_fixed(filename):
-    with open(filename, 'rb') as f:
+PLOTS_DIR = '/home/lucadriu/Desktop/uni/Tesi/Final/experiments/all/population/plots/'
+
+
+def load_results(filepath):
+    with open(filepath, 'rb') as f:
         data = pickle.load(f)
+    return data
 
-    alphas = data['alphas']
-    ds = data['ds']
-    beta = data['beta']
-    method = data['method']
+
+def power_label(d):
+    if d >= 10:
+        return f"10^{{{int(np.log10(d))}}}"
+    return f"{d}"
+
+
+def eta_label(cfg):
+    if cfg['eta'] == 'inv_pi1':
+        return r'$\eta = 1/\pi_1$'
+    return rf"$\eta = {cfg['eta']}$"
+
+
+def runs_label(runs):
+    # runs has shape (n_runs, n_t)
+    if runs.shape[0] > 1:
+        return f', mean $\\pm$ std over {runs.shape[0]} runs'
+    return ''
+
+
+def plot_mean_std(ax, t_steps, runs, color, label):
+    # runs has shape (n_runs, n_t): plot the mean and, if more than one run, a +-std band
+    mean = np.mean(runs, axis=0)
+    std = np.std(runs, axis=0)
+    ax.plot(t_steps, mean, color=color, linewidth=2.0, label=label)
+    if runs.shape[0] > 1:
+        ax.fill_between(t_steps, mean - std, mean + std, color=color, alpha=0.3)
+
+
+
+
+def plot_d_fixed(filepath, save=True):
+    data = load_results(filepath)
+    cfg = data['config']
     sims = data['simulations']
 
-    num_ds = len(ds)
-    cmap = cm.get_cmap('Oranges')
-    colors = cmap(np.linspace(0.4, 0.95, num_ds))
+    alphas = cfg['alphas']
+    ds = cfg['ds']
+    betas = cfg['betas']
+    method = cfg['method']
 
-    for alpha in alphas:
-        fig, (ax_L, ax_q) = plt.subplots(1, 2, figsize=(14, 6))
+    colors = plt.colormaps['Oranges'](np.linspace(0.4, 0.95, len(betas)))
 
-        for i, d in enumerate(ds):
+    for d in ds:
+        power_d = power_label(d)
+
+        # One panel per alpha regime, each holding the whole beta sweep
+        fig, axes = plt.subplots(1, len(alphas), figsize=(6.0 * len(alphas), 5.5))
+        axes = np.atleast_1d(axes)
+
+        for ax, alpha in zip(axes, alphas):
             run = sims[alpha][d]
             t_steps = run['t_steps']
-            dynamics = run['dynamics']
-            dynamics_q = run['dynamics_q']
 
-            power_label = f"10^{{{int(np.log10(d))}}}" if d >= 10 else f"{d}"
-            
-            # Left panel: r_d(t) relative loss dynamics
-            ax_L.plot( t_steps, dynamics,color=colors[i],linewidth=2.0,label=rf'$d = {power_label}$')
+            for i, beta in enumerate(betas):
+                plot_mean_std(ax, t_steps, run['L'][beta], colors[i], rf'$\beta = {beta}$')
 
-            # Right panel: q_d(t) interaction dynamics
-            ax_q.plot(t_steps, dynamics_q,color=colors[i],linewidth=2.0,label=rf'$d = {power_label}$')
+            # Theoretical scaling law reference line, only when eta = 1/pi_1
+            if run['refline_ok']:
+                t_ref = refline_t_grid(alpha, d, t_steps)
+                ax.plot(
+                    t_ref, refline(alpha, d, t_ref),
+                    linestyle='--',
+                    color='black',
+                    alpha=0.75,
+                    linewidth=2.0,
+                    label=refline_label(alpha)
+                )
 
-        # Plot theoretical scaling law reference line from the largest d run
-        largest_d = ds[-1]
-        t_ref = sims[alpha][largest_d]['t_steps']
-        refline = sims[alpha][largest_d]['refline']
+            # Panel formatting
+            ax.set_title(rf'$\alpha = {alpha}$', fontsize=13)
+            ax.set_xlabel(r'Step ($t$)', fontsize=12)
+            ax.set_ylabel(r'$r_d(t)$', fontsize=12)
+            ax.set_xscale('log')
+            ax.set_yscale('log')
+            ax.grid(False)
+            ax.legend(fontsize=11)
+            ax.set_ylim(1e-3, 1.2)
 
-        if alpha < 1.0:
-            ref_label = r'$\frac{1-\alpha}{\alpha} E_{1/\alpha}(\tau)$'
-        elif alpha == 1.0:
-            ref_label = r'$1 - \tau$'
-        else:
-            ref_label = r'$\mathrm{B}(1-1/\alpha,\, 1+2t)\,/\,\alpha\zeta(\alpha)$'
-
-        ax_L.plot(t_ref, refline,linestyle='--',color='black',alpha=0.75,linewidth=2.0,label=f'{ref_label}')
-
-        # Left panel formatting
-        ax_L.set_title(r'$r_d(t)$ dynamics', fontsize=13)
-        ax_L.set_xlabel(r'Step ($t$)', fontsize=12)
-        ax_L.set_ylabel(r'$r_d(t)$', fontsize=12)
-        ax_L.set_xscale('log')
-        #ax_L.set_yscale('log')
-        ax_L.grid(False)
-        ax_L.legend(fontsize=11)
-
-        # Right panel formatting
-        ax_q.set_title(r'$q_d(t)$ dynamics', fontsize=13)
-        ax_q.set_xlabel(r'Step ($t$)', fontsize=12)
-        ax_q.set_ylabel(r'$q_d(t)$', fontsize=12)
-        ax_q.set_xscale('log')
-        ax_q.grid(False)
-        #ax_q.legend(fontsize=11)
-
-        fig.suptitle(fr'Population Loss dynamics varying $d$ ($\alpha={alpha}$, $\beta={beta}$, $\eta = 1/\pi_1$) ', fontsize=14)
+        fig.suptitle(
+            rf'Population Loss dynamics varying $\beta$ ($d={power_d}$, {method} $u$, {eta_label(cfg)}{runs_label(run["q"])})',
+            fontsize=14)
         plt.tight_layout()
+        if save:
+            plt.savefig(PLOTS_DIR + f"loss_vs_beta/{cfg['name']}_loss_all_alphas_d{d}.png")
         plt.show()
 
 
 
 
-def plot_perturb_evo(filename):
-   
-    with open(filename, 'rb') as f:
-        data = pickle.load(f)
+def perturb_figure(cfg, sims, key, divide_by_pi1, ylabel, title, filename, save):
+    alphas = cfg['alphas']
+    ds = cfg['ds']
 
-    alphas = data['alphas']
-    ds = data['ds']
-    beta = data.get('beta', None)
-    method = data.get('method', '')
-    sims = data['simulations']
+    colors = plt.colormaps['Oranges'](np.linspace(0.25, 0.95, len(ds)))
 
-    num_ds = len(ds)
-    cmap = plt.colormaps['Oranges'] if hasattr(plt, 'colormaps') else cm.get_cmap('Oranges')
-    colors = cmap(np.linspace(0.25, 0.95, num_ds))
-
-    fig1, axes1 = plt.subplots(1, len(alphas), figsize=(18, 5.5))
-    if len(alphas) == 1:
-        axes1 = [axes1]
-
-    for j, alpha in enumerate(alphas):
-        ax = axes1[j]
-
-        for i, d in enumerate(ds):
-            run = sims[alpha].get(d, sims[alpha].get(beta, {}))
-            t_steps = run['t_steps']
-            dynamics_q = run.get('dynamics_q', run.get('dynamcs_A'))
-
-            power_label = f"10^{{{int(np.log10(d))}}}" if d >= 10 else f"{d}"
-
-            ax.plot(
-                t_steps,
-                dynamics_q,
-                color=colors[i],
-                linewidth=2.0,
-                label=rf'$d = {power_label}$'
-            )
-
-        ax.set_title(rf'$\alpha = {alpha}$', fontsize=13)
-        ax.set_xlabel(r'Step ($t$)', fontsize=12)
-        ax.set_ylabel(r'$q_d(t)$', fontsize=12)
-        ax.set_xscale('log')
-        #ax.set_yscale('log')
-        ax.grid(False)
-
-        if j == 0:
-            ax.legend(fontsize=11, loc='lower right')
-
-    fig1.suptitle(r'$q(t)$ dynamics across vocabulary sizes ($\eta = 1/\pi_1$)', fontsize=14)
-    fig1.tight_layout()
-    plt.savefig(f"/home/lucadriu/Desktop/uni/Tesi/Final/experiments/all/population/plots/perturbation/greedy_perturb_evo_q.png")
-    plt.show()
-
-
-
-    fig2, axes1 = plt.subplots(1, len(alphas), figsize=(18, 5.5))
-    if len(alphas) == 1:
-        axes1 = [axes1]
-
-    for j, alpha in enumerate(alphas):
-        ax = axes1[j]
-
-        for i, d in enumerate(ds):
-            run = sims[alpha].get(d, sims[alpha].get(beta, {}))
-            t_steps = run['t_steps']
-            dynamics_A = run.get('dynamics_A', run.get('dynamcs_A'))
-
-            power_label = f"10^{{{int(np.log10(d))}}}" if d >= 10 else f"{d}"
-
-            ax.plot(
-                t_steps,
-                dynamics_A,
-                color=colors[i],
-                linewidth=2.0,
-                label=rf'$d = {power_label}$'
-            )
-
-        ax.set_title(rf'$\alpha = {alpha}$', fontsize=13)
-        ax.set_xlabel(r'Step ($t$)', fontsize=12)
-        ax.set_ylabel(r'$A_d(t)$', fontsize=12)
-        ax.set_xscale('log')
-        #ax.set_yscale('log')
-        ax.grid(False)
-
-        if j == 0:
-            ax.legend(fontsize=11, loc='lower right')
-
-    fig2.suptitle(r'$A(t)$ dynamics across vocabulary sizes ($\eta = 1/\pi_1$)', fontsize=14)
-    fig2.tight_layout()
-    plt.savefig(f"/home/lucadriu/Desktop/uni/Tesi/Final/experiments/all/population/plots/perturbation/greedy_perturb_evo_A.png")
-    plt.show()
-
-
-    fig3, axes2 = plt.subplots(1, len(alphas), figsize=(18, 5.5))
-    if len(alphas) == 1:
-        axes2 = [axes2]
-
-    for j, alpha in enumerate(alphas):
-        ax = axes2[j]
-
-        # Theoretical transition point: tau = [-2 log(1 - 2^(-alpha))]^(-1)
-        t_star = 1.0 / (-2.0 * np.log(1.0 - 2.0 ** (-alpha)))
-        ax.axvline(
-            x=t_star,
-            color='black',
-            linestyle=':',
-            linewidth=1.8,
-            label=r'$\tau = [-2log(1 - 2^{-\alpha})]^{-1}$'
-        )
-
-        for i, d in enumerate(ds):
-            run = sims[alpha].get(d, sims[alpha].get(beta, {}))
-            t_steps = run['t_steps']
-            dynamics_A = run.get('dynamics_A', run.get('dynamcs_A'))
-            pi_1 = token_freq(d, alpha)[0]
-
-            power_label = f"10^{{{int(np.log10(d))}}}" if d >= 10 else f"{d}"
-
-            ax.plot(
-                t_steps,
-                dynamics_A / pi_1,
-                color=colors[i],
-                linewidth=2.0,
-                label=rf'$d = {power_label}$'
-            )
-
-        ax.set_title(rf'$\alpha = {alpha}$', fontsize=13)
-        ax.set_xlabel(r'Step ($t$)', fontsize=12)
-        ax.set_ylabel(r'$A_d(t)/\pi_1$', fontsize=12)
-        ax.set_xscale('log')
-        #ax.set_yscale('log')
-        ax.grid(False)
-
-        if j == 0:
-            ax.legend(fontsize=11, loc='lower right')
-
-    fig3.suptitle(r'$q(t)/q(0) = A(t)/\pi_1$ dynamics across vocabulary sizes ($\eta = 1/\pi_1$)', fontsize=14)
-    fig3.tight_layout()
-    plt.savefig(f"/home/lucadriu/Desktop/uni/Tesi/Final/experiments/all/population/plots/perturbation/greedy_perturb_evo_Anorm.png")
-    plt.show()
-
-
-
-
-def plot_d_fixed(filename, eta):
-    with open(filename, 'rb') as f:
-        data = pickle.load(f)
-
-    alphas = data['alphas']
-    d = data['d']
-    betas = data['betas']
-    method = data['method']
-    sims = data['simulations']
-
-    num_betas = len(betas)
-    cmap = plt.colormaps['Oranges'] if hasattr(plt, 'colormaps') else cm.get_cmap('Oranges')
-    colors = cmap(np.linspace(0.4, 0.95, num_betas))
-
-    power_d = f"10^{{{int(np.log10(d))}}}" if d >= 10 else f"{d}"
-
-    # One panel per alpha regime, each holding the whole beta sweep
-    fig, axes = plt.subplots(1, len(alphas), figsize=(6.0 * len(alphas), 5.5))
+    fig, axes = plt.subplots(1, len(alphas), figsize=(18, 5.5))
     axes = np.atleast_1d(axes)
 
-    for ax, alpha in zip(axes, alphas):
-        for i, beta in enumerate(betas):
-            run = sims[alpha][beta]
-            t_steps = run['t_steps']
-            dynamics = run['dynamics']
+    for j, alpha in enumerate(alphas):
+        ax = axes[j]
 
-            ax.plot(
-                t_steps, dynamics,
-                color=colors[i],
-                linewidth=2.0,
-                label=rf'$\beta = {beta}$'
+        # t* line only when eta = 1/pi_1 for every d of the panel
+        all_ok = True
+        for d in ds:
+            if not sims[alpha][d]['refline_ok']:
+                all_ok = False
+        if divide_by_pi1 and all_ok:
+            ax.axvline(
+                x=t_star(alpha),
+                color='black',
+                linestyle=':',
+                linewidth=1.8,
+                label=r'$\tau = [-2log(1 - 2^{-\alpha})]^{-1}$'
             )
 
-        # Plot theoretical scaling law reference line
-        any_beta = betas[0]
-        t_ref = sims[alpha][any_beta]['t_steps']
-        refline = sims[alpha][any_beta]['refline']
+        for i, d in enumerate(ds):
+            run = sims[alpha][d]
+            runs = run[key]
+            if divide_by_pi1:
+                runs = runs / run['pi1']
+            plot_mean_std(ax, run['t_steps'], runs, colors[i], rf'$d = {power_label(d)}$')
 
-        if alpha < 1.0:
-            ref_label = r'$\frac{1-\alpha}{\alpha} E_{1/\alpha}(\tau)$'
-        elif alpha == 1.0:
-            ref_label = r'$1 - \tau$'
-        else:
-            ref_label = r'$\mathrm{B}(1-1/\alpha,\, 1+2t)\,/\,\alpha\zeta(\alpha)$'
-
-        ax.plot(
-            t_ref, refline,
-            linestyle='--',
-            color='black',
-            alpha=0.75,
-            linewidth=2.0,
-            label=f'{ref_label}'
-        )
-
-        # Panel formatting
         ax.set_title(rf'$\alpha = {alpha}$', fontsize=13)
         ax.set_xlabel(r'Step ($t$)', fontsize=12)
-        ax.set_ylabel(r'$r_d(t)$', fontsize=12)
+        ax.set_ylabel(ylabel, fontsize=12)
         ax.set_xscale('log')
-        ax.set_yscale('log')
         ax.grid(False)
-        ax.legend(fontsize=11)
-    
+
+        if j == 0:
+            ax.legend(fontsize=11, loc='lower right')
+
     fig.suptitle(
-        rf'Population Loss dynamics varying $\beta$ ($d={power_d}$, {method} $u$, $\eta = 1/\pi_1$)',
+        title + rf" ({cfg['method']} $u$, {eta_label(cfg)}{runs_label(sims[alphas[0]][ds[0]]['q'])})",
         fontsize=14)
-    plt.tight_layout()
-    plt.savefig(f"/home/lucadriu/Desktop/uni/Tesi/Final/experiments/all/population/plots/loss_vs_beta/{method}_{eta}_loss_all_alphas_1e{power_d}.png")
+    fig.tight_layout()
+    if save:
+        plt.savefig(PLOTS_DIR + 'perturbation/' + filename)
     plt.show()
 
 
+def plot_perturb_evo(filepath, save=True):
+    data = load_results(filepath)
+    cfg = data['config']
+    sims = data['simulations']
+    name = cfg['name']
 
+    perturb_figure(cfg, sims, 'q', False, r'$q_d(t)$',
+                   r'$q(t)$ dynamics across vocabulary sizes',
+                   f'{name}_perturb_evo_q.png', save)
 
+    perturb_figure(cfg, sims, 'A', False, r'$A_d(t)$',
+                   r'$A(t)$ dynamics across vocabulary sizes',
+                   f'{name}_perturb_evo_A.png', save)
 
+    perturb_figure(cfg, sims, 'A', True, r'$A_d(t)/\pi_1$',
+                   r'$q(t)/q(0) = A(t)/\pi_1$ dynamics across vocabulary sizes',
+                   f'{name}_perturb_evo_Anorm.png', save)

@@ -1,107 +1,66 @@
 import numpy as np
 import pickle
-from POPloss import evo_loss, token_freq, u_j_greedy, u_jn, u_j_flip_mp
+from POPdata import token_freq, build_u
+from POPloss import loss_terms
 
 
-def evoloss_beta_fixed(alphas, ds, beta, n_passes, t_start, t_stop, nice_plots, method):  
-    results = {
-        'alphas': alphas,
-        'ds': ds,
-        'beta': beta,
-        'method': method,
-        'simulations': {}
-    }
+def run_simulation(cfg):
+    method = cfg['method']
+    n_t = cfg['n_t']
+    n_runs = cfg['n_runs']
+    if method == 'greedy':
+        n_runs = 1                                   # greedy is deterministic
 
-    for alpha in alphas:
+    rng = np.random.default_rng(cfg['seed'])
+
+    results = {'config': cfg, 'simulations': {}}
+
+    for alpha in cfg['alphas']:
         results['simulations'][alpha] = {}
-        if nice_plots == True:
-            if alpha < 1.0:
-                t_start, t_stop = 1e-3 , 1e5
-            if alpha == 1.0:
-                t_start, t_stop = 1e-3 , 1e7
-            if alpha > 1.0:
-                t_start, t_stop = 1 , 1e7
-        
-        for i, d in enumerate(ds):
 
+        for d in cfg['ds']:
             pi = token_freq(d, alpha)
-            eta = 1/pi[0]
 
-            if method == 'greedy':
-                u_j = u_j_greedy(d, pi)
-            if method == 'random':
-                u_j = u_jn(d)
-            if method == 'flip':
-                u_j = u_j_flip_mp(d, pi, n_passes)
-            
-            t_steps, dynamics, dynamics_b, dynamics_q, dynamics_A, refline = evo_loss(d, alpha, pi, u_j, beta, eta, t_start, t_stop)
+            # learning rate
+            if cfg['eta'] == 'inv_pi1':
+                eta = 1 / pi[0]
+            else:
+                eta = cfg['eta']
+
+            # time grid
+            t_start, t_stop = cfg['t_range'][alpha]
+            if t_stop == 'd/2':
+                t_stop = d / 2
+            t_steps = np.geomspace(t_start, t_stop, n_t)
+
+            # one row per run
+            L = {}
+            for beta in cfg['betas']:
+                L[beta] = np.zeros((n_runs, n_t))
+            q = np.zeros((n_runs, n_t))
+            A = np.zeros((n_runs, n_t))
+
+            for r in range(n_runs):
+                u_j = build_u(method, d, pi, cfg['n_passes'], rng)
+                for k in range(n_t):
+                    b_t, q_t, A_t = loss_terms(pi, u_j, eta, t_steps[k])
+                    q[r, k] = q_t
+                    A[r, k] = A_t
+                    for beta in cfg['betas']:
+                        L[beta][r, k] = b_t - (2*beta / (1 + beta**2)) * q_t
 
             results['simulations'][alpha][d] = {
-                't_steps': np.array(t_steps),
-                'dynamics': np.array(dynamics),
-                'dynamics_b': np.array(dynamics_b),
-                'dynamics_q': np.array(dynamics_q),
-                'dynamcs_A' : np.array(dynamics_A),
-                'refline': np.array(refline)
+                't_steps': t_steps,
+                'eta': eta,
+                'pi1': pi[0],
+                'refline_ok': bool(np.isclose(eta, 1 / pi[0])),
+                'L': L,
+                'q': q,
+                'A': A,
             }
 
-    filename =  fr'evo_fixed_beta_{method}.pkl'
-    filepath = fr'/home/lucadriu/Desktop/uni/Tesi/Final/experiments/all/population/data/evo_fixed_beta_{method}.pkl'
+    filepath = '/home/lucadriu/Desktop/uni/Tesi/Final/experiments/all/population/data/' + cfg['name'] + '.pkl'
     with open(filepath, 'wb') as f:
         pickle.dump(results, f)
 
     return filepath
-
-
-
-
-def evoloss_d_fixed(alphas, d, betas, n_passes, method):  
-    results = {
-        'alphas': alphas,
-        'd': d,
-        'betas': betas,
-        'method': method,
-        'simulations': {}
-    }
-
-    for alpha in alphas:
-        results['simulations'][alpha] = {}
-        if alpha < 1.0:
-            t_start, t_stop = 1e-2 , 1e3
-        if alpha == 1.0:
-            t_start, t_stop = 0.5 , d/2
-        if alpha > 1.0:
-            t_start, t_stop = 1 , 1e3
-
-        # Computed once for the given vocabulary size d
-        pi = token_freq(d, alpha)
-        eta = 1 / pi[0]
-
-        if method == 'greedy':
-            u_j = u_j_greedy(d, pi)
-        if method == 'random':
-            u_j = u_jn(d)
-        if method == 'flip':
-            u_j = u_j_flip_mp(d, pi, n_passes)
-
-        # Loop over beta values instead of vocabulary sizes
-        for beta in betas:
-            t_steps, dynamics, dynamics_b, dynamics_q, _, refline = evo_loss(d, alpha, pi, u_j, beta, eta, t_start, t_stop)
-
-            results['simulations'][alpha][beta] = {
-                'eta': eta,
-                't_steps': np.array(t_steps),
-                'dynamics': np.array(dynamics),
-                'dynamics_b': np.array(dynamics_b),
-                'dynamics_q': np.array(dynamics_q),
-                'refline': np.array(refline)
-            }
-
-    filepath = fr'/home/lucadriu/Desktop/uni/Tesi/Final/experiments/all/population/data/loss_{d}_{method}.pkl'
-    with open(filepath, 'wb') as f:
-        pickle.dump(results, f)
-
-    return filepath, eta
-
-
-
